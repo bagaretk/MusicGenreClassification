@@ -20,12 +20,12 @@ HAMMING_STRIDE = 40
 
 def die_with_usage():
     """ HELP MENU """
-    print 'USAGE: python preproccess.py [path to MSD mp3 data]'
+    print('USAGE: python preproccess.py [path to MSD mp3 data]')
     sys.exit(0)
 
 
 def update_progress(progress):
-    print '\r[{0}] {1}%'.format('#' * (progress / 10), progress)
+    print('\r[{0}] {1}%'.format('#' * (progress / 10), progress))
 
 
 def rreplace(s, old, new, occurrence):
@@ -34,7 +34,7 @@ def rreplace(s, old, new, occurrence):
 
 
 def prepossessingAudio(audioPath, ppFilePath):
-    print 'Prepossessing ' + audioPath
+    print('Prepossessing ' + audioPath)
 
     featuresArray = []
     for i in range(0, SOUND_SAMPLE_LENGTH, HAMMING_STRIDE):
@@ -55,7 +55,7 @@ def prepossessingAudio(audioPath, ppFilePath):
             if len(featuresArray) == 599:
                 break
 
-    print 'storing pp file: ' + ppFilePath
+    print('storing pp file: ' + ppFilePath)
 
     f = open(ppFilePath, 'w')
     f.write(pickle.dumps(featuresArray))
@@ -86,7 +86,7 @@ if __name__ == "__main__":
                 try:
                     prepossessingAudio(file_path, ppFileName)
                 except Exception as e:
-                    print "Error accured" + str(e)
+                    print("Error accured" + str(e))
 
             if filename.endswith('au'):
                 sys.stdout.write("\r%d%%" % int(i / 7620 * 100))

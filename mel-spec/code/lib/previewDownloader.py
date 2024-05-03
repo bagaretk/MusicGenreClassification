@@ -13,11 +13,11 @@ import hdf5_getters
 
 def die_with_usage():
     """ HELP MENU """
-    print 'USAGE: python previewDownloader.py [path to MSD data]'
+    print ('USAGE: python previewDownloader.py [path to MSD data]')
     sys.exit(0)
 
 def update_progress(progress):
-    print '\r[{0}] {1}%'.format('#' * (progress / 10), progress)
+    print ('\r[{0}] {1}%'.format('#' * (progress / 10), progress))
 
 # def download
 
@@ -36,7 +36,7 @@ if __name__ == "__main__":
                 if (os.path.isdir(insidePath2)):
                     for file in os.listdir(insidePath2):
                         previewFilePath = insidePath2 + '/' + os.path.splitext(file)[0] + '.mp3'
-                        print previewFilePath
+                        print (previewFilePath)
                         if file.endswith('h5') and not os.path.isfile(previewFilePath):
                             h5FilePath = insidePath2+'/'+file
                             # print 'Processing ' + h5FilePath
@@ -49,7 +49,7 @@ if __name__ == "__main__":
                                 url = py7D.preview_url(id7Digital)
                                 urlretrieve = urllib.urlretrieve(url, previewFilePath)
                             except Exception as e:
-                                print "Error accured: " + str(e)
+                                print ("Error accured: " + str(e))
 
                         if file.endswith('h5'):
                             # update_progress(int(i/7620 * 100))

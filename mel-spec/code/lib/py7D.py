@@ -2,7 +2,7 @@ import httplib2
 import os
 import urllib
 import re
-import urlparse
+from urllib.parse import urlparse
 import xmltodict
 import collections
 

@@ -1,4 +1,4 @@
-import httplib
+import http.client as httplib
 import re
 import sys
 
@@ -25,7 +25,7 @@ def _token_from_response_content(content):
         secret = re.search(
             "<oauth_token_secret>(\w.+)</oauth_token_secret>",
             content).groups()[0]
-    except AttributeError, e:
+    except AttributeError as e:
         return "Error processing response from 7digital: (%s) [AttributeError: %s]" % (content, e)
 
     return oauth.Token(key, secret)
@@ -56,8 +56,8 @@ def authorize_request_token(token, debug=False):
     auth_url="%s?oauth_token=%s" % (keyed_auth_url, token.key)
 
     if debug:
-        print 'Authorization URL: %s' % auth_url
-        oauth_verifier = raw_input(
+        print ('Authorization URL: %s' % auth_url)
+        oauth_verifier = input(
             'Please go to the above URL and authorize the app. \
             Hit return when you have been authorized: '
         )

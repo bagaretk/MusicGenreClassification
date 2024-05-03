@@ -11,6 +11,7 @@ import sys
 import os
 
 import librosa
+from librosa import feature
 
 SOUND_SAMPLE_LENGTH = 30000
 
@@ -20,12 +21,12 @@ HAMMING_STRIDE = 40
 
 def die_with_usage():
     """ HELP MENU """
-    print 'USAGE: python preproccess.py [path to MSD mp3 data]'
+    print('USAGE: python preproccess.py [path to MSD mp3 data]')
     sys.exit(0)
 
 
 def update_progress(progress):
-    print '\r[{0}] {1}%'.format('#' * (progress / 10), progress)
+    print('\r[{0}] {1}%'.format('#' * (progress / 10), progress))
 
 
 def rreplace(s, old, new, occurrence):
@@ -34,7 +35,7 @@ def rreplace(s, old, new, occurrence):
 
 
 def prepossessingAudio(audioPath, ppFilePath):
-    print 'Prepossessing ' + audioPath
+    print('Prepossessing ' + audioPath)
 
     featuresArray = []
     for i in range(0, SOUND_SAMPLE_LENGTH, HAMMING_STRIDE):
@@ -42,10 +43,10 @@ def prepossessingAudio(audioPath, ppFilePath):
             y, sr = librosa.load(audioPath, offset=i / 1000.0, duration=HAMMING_SIZE / 1000.0)
 
             # Let's make and display a mel-scaled power (energy-squared) spectrogram
-            S = librosa.feature.melspectrogram(y, sr=sr, n_mels=128)
+            S = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=128)
 
             # Convert to log scale (dB). We'll use the peak power as reference.
-            log_S = librosa.logamplitude(S, ref_power=np.max)
+            log_S = librosa.amplitude_to_db(S, ref=np.max)
 
             mfcc = librosa.feature.mfcc(S=log_S, sr=sr, n_mfcc=13)
             # featuresArray.append(mfcc)
@@ -55,10 +56,10 @@ def prepossessingAudio(audioPath, ppFilePath):
             if len(featuresArray) == 599:
                 break
 
-    print 'storing pp file: ' + ppFilePath
+    print('storing pp file: ' + ppFilePath)
 
-    f = open(ppFilePath, 'w')
-    f.write(pickle.dumps(featuresArray))
+    with open(ppFilePath, 'wb') as f:
+        f.write(pickle.dumps(featuresArray))
     f.close()
 
 
@@ -75,10 +76,10 @@ if __name__ == "__main__":
 
     for root, subdirs, files in os.walk(walk_dir):
         for filename in files:
-            if filename.endswith('.au'):
+            if filename.endswith('.wav'):
                 file_path = os.path.join(root, filename)
-                # print('\t- file %s (full path: %s)' % (filename, file_path))
-                ppFileName = rreplace(file_path, ".au", ".pp", 1)
+                print('\t- file %s (full path: %s)' % (filename, file_path))
+                ppFileName = rreplace(file_path, ".wav", ".pp", 1)
 
                 # if os.path.isfile(ppFileName):  # Skip if pp file already exist
                 #     continue
@@ -86,9 +87,9 @@ if __name__ == "__main__":
                 try:
                     prepossessingAudio(file_path, ppFileName)
                 except Exception as e:
-                    print "Error accured" + str(e)
+                    print("Error accured" + str(e))
 
-            if filename.endswith('au'):
+            if filename.endswith('wav'):
                 sys.stdout.write("\r%d%%" % int(i / 7620 * 100))
                 sys.stdout.flush()
                 i += 1

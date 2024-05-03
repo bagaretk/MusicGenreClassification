@@ -9,7 +9,7 @@ __status__ = "Development"
 
 import numpy as np
 from matplotlib import pyplot as plt
-from tsne import bh_sne
+from sklearn.manifold import TSNE
 import pickle
 import sys
 import os
@@ -56,7 +56,7 @@ if __name__ == "__main__":
                 file_path = os.path.join(root, filename)
                 # print('\t- file %s (full path: %s)' % (filename, file_path))
 
-                with open(file_path, 'r') as f:
+                with open(file_path, 'rb') as f:
                     try:
                         soundId = os.path.splitext(filename)[0]
                         content = f.read()
@@ -77,24 +77,28 @@ if __name__ == "__main__":
                 sys.stdout.flush()
                 i += 1
 
-    #save data and lables
-    with open("data", 'w') as f:
-        f.write(pickle.dumps(data.values()))
+    data_values_list = list(data.values())
 
-    with open("labels", 'w') as f:
-        f.write(pickle.dumps(array(labels)))
+    # write pickled data to "data" file
+    with open("data.pkl", 'wb') as f:
+        pickle.dump(data_values_list, f)
+
+    # write pickled labels to "labels" file
+    with open("labels.pkl", 'wb') as f:
+        pickle.dump(labels, f)
 
     # print sizes
     print("Data set size: " + str(len(data.keys())))
     print("Number of genres: " + str(len(labelsDict.keys())))
 
     # convert image data to float64 matrix. float64 is need for bh_sne
-    reshapedList = array(data.values())
+    reshapedList = list(data.values())  # No need for array() here
     x_data = np.asarray(reshapedList).astype('float64')
     x_data = x_data.reshape((x_data.shape[0], -1))
 
     # perform t-SNE embedding
-    vis_data = bh_sne(x_data, perplexity=30)
+    tsne = TSNE(perplexity=30)
+    vis_data = tsne.fit_transform(x_data)
 
     # plot the result
     vis_x = vis_data[:, 0]

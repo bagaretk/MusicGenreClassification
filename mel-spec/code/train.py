@@ -7,20 +7,20 @@ __copyright__ = "Copyright 2016, Tel Aviv University"
 __version__ = "1.0"
 __status__ = "Development"
 
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
 import numpy as np
 import pickle
 
 def getBatch(data, labels, batchSize, iteration):
     startOfBatch = (iteration * batchSize) % len(data)
-    endOfBacth = (iteration * batchSize + batchSize) % len(data)
+    endOfBatch = (iteration * batchSize + batchSize) % len(data)
 
-    if startOfBatch < endOfBacth:
-        return data[startOfBatch:endOfBacth], labels[startOfBatch:endOfBacth]
+    if startOfBatch < endOfBatch:
+        return data[startOfBatch:endOfBatch], labels[startOfBatch:endOfBatch]
     else:
-        dataBatch = np.vstack((data[startOfBatch:],data[:endOfBacth]))
-        labelsBatch = np.vstack((labels[startOfBatch:],labels[:endOfBacth]))
-
+        dataBatch = data[startOfBatch:endOfBatch]
+        labelsBatch = labels[startOfBatch:endOfBatch]
         return dataBatch, labelsBatch
 
 
@@ -35,24 +35,28 @@ if __name__ == "__main__":
 
     # Network Parameters
     # n_input = 599 * 128
-    n_input = 599 * 128*2
+    n_input = 383360
     n_classes = 10
     dropout = 0.75  # Dropout, probability to keep units
 
     # Load data
     data = []
-    with open("data", 'r') as f:
+    with open("data.pkl", 'rb') as f:
         content = f.read()
         data = pickle.loads(content)
+
+    # Convert data to NumPy array
     data = np.asarray(data)
-    data = data
-    data = data.reshape((data.shape[0], n_input))
+
+    # Reshape the data
+    data_flattened = data.reshape((data.shape[0], -1))
+    print("Shape of data after flattening:", data_flattened.shape)
 
     labels = []
-    with open("labels", 'r') as f:
+    with open("labels.pkl", 'rb') as f:
         content = f.read()
         labels = pickle.loads(content)
-
+    labels = np.asarray(labels)
     # #Hack
     # data = np.random.random((1000, n_input))
     # labels = np.random.random((1000, 10))
@@ -85,7 +89,6 @@ if __name__ == "__main__":
     def max_pool(sound, k):
         return tf.nn.max_pool(sound, ksize=[1, k, k, 1], strides=[1, k, k, 1], padding='SAME')
 
-
     def conv_net(_X, _weights, _biases, _dropout):
         # Reshape input picture
         _X = tf.reshape(_X, shape=[-1, 599, 128, 2])
@@ -112,8 +115,12 @@ if __name__ == "__main__":
         conv3 = tf.nn.dropout(conv3, _dropout)
 
         # Fully connected layer
+        # Calculate the size of the flattened output
+        dense1_input_size = conv3.get_shape().as_list()[1] * conv3.get_shape().as_list()[2] * \
+                            conv3.get_shape().as_list()[3]
+        print("dense1_input_size =",dense1_input_size)
         # Reshape conv3 output to fit dense layer input
-        dense1 = tf.reshape(conv3, [-1, _weights['wd1'].get_shape().as_list()[0]])
+        dense1 = tf.reshape(conv3, [-1, dense1_input_size])
         # Relu activation
         dense1 = tf.nn.relu(tf.add(tf.matmul(dense1, _weights['wd1']), _biases['bd1']))
         # Apply Dropout
@@ -132,25 +139,27 @@ if __name__ == "__main__":
         'wc2': tf.Variable(tf.random_normal([4, 4, 149, 73])),
         # 4x4 conv, 73 inputs, 35 outputs
         'wc3': tf.Variable(tf.random_normal([4, 4, 73, 35])),
-        # fully connected, 38*8*35 inputs, 2^13 outputs
-        'wd1': tf.Variable(tf.random_normal([38 * 8 * 35, 8192])),
-        # 2^13 inputs, 13 outputs (class prediction)
-        'out': tf.Variable(tf.random_normal([8192, n_classes]))
+        # fully connected, 10640 inputs, 8192 outputs
+        'wd1': tf.Variable(tf.random_normal([10640, 8192])),
+        # 8192 inputs, 10 outputs (class prediction)
+        'out': tf.Variable(tf.random_normal([8192, 10]))  # Adjusted output size to 10
     }
 
     biases = {
-        'bc1': tf.Variable(tf.random_normal([149])+0.01),
-        'bc2': tf.Variable(tf.random_normal([73])+0.01),
-        'bc3': tf.Variable(tf.random_normal([35])+0.01),
-        'bd1': tf.Variable(tf.random_normal([8192])+0.01),
-        'out': tf.Variable(tf.random_normal([n_classes])+0.01)
+        'bc1': tf.Variable(tf.random_normal([149]) + 0.01),
+        'bc2': tf.Variable(tf.random_normal([73]) + 0.01),
+        'bc3': tf.Variable(tf.random_normal([35]) + 0.01),
+        'bd1': tf.Variable(tf.random_normal([8192]) + 0.01),
+        'out': tf.Variable(tf.random_normal([n_classes]) + 0.01)  # n_classes = 10
     }
 
     # Construct model
     pred = conv_net(x, weights, biases, keep_prob)
 
     # Define loss and optimizer
-    cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(pred, y))
+    cross_entropy = tf.nn.softmax_cross_entropy_with_logits_v2(logits=pred, labels=y)
+    cost = tf.reduce_mean(cross_entropy)
+    # Define optimizer
     optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
 
     # Evaluate model
@@ -164,20 +173,24 @@ if __name__ == "__main__":
     saver = tf.train.Saver()
 
     # Launch the graph
-    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True)) as sess:
+    with tf.compat.v1.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True)) as sess:
         sess.run(init)
         step = 1
         # Keep training until reach max iterations
         while step * batch_size < training_iters:
             batch_xs, batch_ys = getBatch(trainData, trainLabels, batch_size, step)
             # Fit training using batch data
-            sess.run(optimizer, feed_dict={x: batch_xs, y: batch_ys, keep_prob: dropout})
-
+            print("batch_xs.shape=",batch_xs.shape)
+            print("batch_ys.shape=", batch_ys.shape)
+            batch_xs_flattened = np.reshape(batch_xs, (batch_size, -1))
+            print("batch_xs_flattened.shape=", batch_xs_flattened.shape)
+            #batch_ys_resized = np.reshape(batch_ys, (batch_size, 10))
+            sess.run(optimizer, feed_dict={x: batch_xs_flattened, y: batch_ys, keep_prob: dropout})
             if step % display_step == 0:
                 # Calculate batch accuracy
-                acc = sess.run(accuracy, feed_dict={x: batch_xs, y: batch_ys, keep_prob: 1.})
+                acc = sess.run(accuracy, feed_dict={x: batch_xs_flattened, y: batch_ys, keep_prob: 1.})
                 # Calculate batch loss
-                loss = sess.run(cost, feed_dict={x: batch_xs, y: batch_ys, keep_prob: 1.})
+                loss = sess.run(cost, feed_dict={x: batch_xs_flattened, y: batch_ys, keep_prob: 1.})
                 print("Iter " + str(step * batch_size) + ", Minibatch Loss= " + \
                       "{:.6f}".format(loss) + ", Training Accuracy= " + "{:.5f}".format(acc))
 
