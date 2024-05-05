@@ -8,6 +8,7 @@
       <excludeFolder url="file://$MODULE_DIR$/interpreterOld" />
       <excludeFolder url="file://$MODULE_DIR$/interpreterpy37" />
       <excludeFolder url="file://$MODULE_DIR$/interpreterpy35" />
+      <excludeFolder url="file://$MODULE_DIR$/interpreterpy27" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.8 (MusicGenreClassification)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
