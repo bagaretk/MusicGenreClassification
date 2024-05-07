@@ -194,3 +194,8 @@ target/
 #Ipython Notebook
 .ipynb_checkpoints
 
+interpreterOld.zip
+mel-spec/code/data.pkl
+mel-spec/code/model.ckpt.data-00000-of-00001.tempstate7274280964753079750
+mel-spec/code/model.ckpt.index
+mel-spec/code/model.ckpt.meta

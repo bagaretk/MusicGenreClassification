@@ -17,6 +17,8 @@ SOUND_SAMPLE_LENGTH = 30000
 
 HAMMING_SIZE = 100
 HAMMING_STRIDE = 40
+n_fft = 2048  # Length of the FFT window
+hop_length = (2 * n_fft) // 3  # Two-thirds of the FFT window length
 
 
 def die_with_usage():
@@ -42,13 +44,14 @@ def prepossessingAudio(audioPath, ppFilePath):
         if i + HAMMING_SIZE <= SOUND_SAMPLE_LENGTH - 1:
             y, sr = librosa.load(audioPath, offset=i / 1000.0, duration=HAMMING_SIZE / 1000.0)
 
+
             # Let's make and display a mel-scaled power (energy-squared) spectrogram
-            S = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=128)
+            S = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=128, n_fft=n_fft, hop_length=hop_length)
 
             # Convert to log scale (dB). We'll use the peak power as reference.
-            log_S = librosa.amplitude_to_db(S, ref=np.max)
+            #log_S = librosa.power_to_db(S, ref=np.max)
 
-            mfcc = librosa.feature.mfcc(S=log_S, sr=sr, n_mfcc=13)
+            #mfcc = librosa.feature.mfcc(S=log_S, sr=sr, n_mfcc=13)
             # featuresArray.append(mfcc)
 
             featuresArray.append(S)
@@ -90,6 +93,6 @@ if __name__ == "__main__":
                     print("Error accured" + str(e))
 
             if filename.endswith('wav'):
-                sys.stdout.write("\r%d%%" % int(i / 7620 * 100))
+                sys.stdout.write("\r%d%%" % int(1 + i / 1000 * 100))
                 sys.stdout.flush()
                 i += 1

@@ -35,16 +35,18 @@ if __name__ == "__main__":
 
     # Network Parameters
     # n_input = 599 * 128
-    n_input = 383360
+    n_input = 599 * 128 * 2
     n_classes = 10
     dropout = 0.75  # Dropout, probability to keep units
 
     # Load data
     data = []
+
+    print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
+
     with open("data.pkl", 'rb') as f:
         content = f.read()
         data = pickle.loads(content)
-
     # Convert data to NumPy array
     data = np.asarray(data)
 
@@ -75,7 +77,7 @@ if __name__ == "__main__":
 
 
     # tf Graph input
-    x = tf.placeholder(tf.float32, [None, n_input])
+    x = tf.placeholder(tf.float32, [None, 599, 128, 2])
     y = tf.placeholder(tf.float32, [None, n_classes])
     keep_prob = tf.placeholder(tf.float32)  # dropout (keep probability)
 
@@ -120,7 +122,7 @@ if __name__ == "__main__":
                             conv3.get_shape().as_list()[3]
         print("dense1_input_size =",dense1_input_size)
         # Reshape conv3 output to fit dense layer input
-        dense1 = tf.reshape(conv3, [-1, dense1_input_size])
+        dense1 = tf.reshape(conv3, [-1, _weights['wd1'].get_shape().as_list()[0]])
         # Relu activation
         dense1 = tf.nn.relu(tf.add(tf.matmul(dense1, _weights['wd1']), _biases['bd1']))
         # Apply Dropout
@@ -140,7 +142,7 @@ if __name__ == "__main__":
         # 4x4 conv, 73 inputs, 35 outputs
         'wc3': tf.Variable(tf.random_normal([4, 4, 73, 35])),
         # fully connected, 10640 inputs, 8192 outputs
-        'wd1': tf.Variable(tf.random_normal([10640, 8192])),
+        'wd1': tf.Variable(tf.random_normal([38 * 8 * 35, 8192])),
         # 8192 inputs, 10 outputs (class prediction)
         'out': tf.Variable(tf.random_normal([8192, 10]))  # Adjusted output size to 10
     }
@@ -182,15 +184,15 @@ if __name__ == "__main__":
             # Fit training using batch data
             print("batch_xs.shape=",batch_xs.shape)
             print("batch_ys.shape=", batch_ys.shape)
-            batch_xs_flattened = np.reshape(batch_xs, (batch_size, -1))
-            print("batch_xs_flattened.shape=", batch_xs_flattened.shape)
+            #batch_xs_flattened = np.reshape(batch_xs, (batch_size, -1))
+            #print("batch_xs_flattened.shape=", batch_xs_flattened.shape)
             #batch_ys_resized = np.reshape(batch_ys, (batch_size, 10))
-            sess.run(optimizer, feed_dict={x: batch_xs_flattened, y: batch_ys, keep_prob: dropout})
+            sess.run(optimizer, feed_dict={x: batch_xs, y: batch_ys, keep_prob: dropout})
             if step % display_step == 0:
                 # Calculate batch accuracy
-                acc = sess.run(accuracy, feed_dict={x: batch_xs_flattened, y: batch_ys, keep_prob: 1.})
+                acc = sess.run(accuracy, feed_dict={x: batch_xs, y: batch_ys, keep_prob: 1.})
                 # Calculate batch loss
-                loss = sess.run(cost, feed_dict={x: batch_xs_flattened, y: batch_ys, keep_prob: 1.})
+                loss = sess.run(cost, feed_dict={x: batch_xs, y: batch_ys, keep_prob: 1.})
                 print("Iter " + str(step * batch_size) + ", Minibatch Loss= " + \
                       "{:.6f}".format(loss) + ", Training Accuracy= " + "{:.5f}".format(acc))
 
