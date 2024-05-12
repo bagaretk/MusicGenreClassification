@@ -35,14 +35,12 @@ if __name__ == "__main__":
 
     # Network Parameters
     # n_input = 599 * 128
-    n_input = 599 * 128 * 2
+    n_input = 599 * 128 * 5
     n_classes = 10
     dropout = 0.75  # Dropout, probability to keep units
 
     # Load data
     data = []
-
-    print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 
     with open("data.pkl", 'rb') as f:
         content = f.read()
@@ -59,6 +57,7 @@ if __name__ == "__main__":
         content = f.read()
         labels = pickle.loads(content)
     labels = np.asarray(labels)
+
     # #Hack
     # data = np.random.random((1000, n_input))
     # labels = np.random.random((1000, 10))
@@ -77,7 +76,7 @@ if __name__ == "__main__":
 
 
     # tf Graph input
-    x = tf.placeholder(tf.float32, [None, 599, 128, 2])
+    x = tf.placeholder(tf.float32, [None, 599, 128, 5])
     y = tf.placeholder(tf.float32, [None, n_classes])
     keep_prob = tf.placeholder(tf.float32)  # dropout (keep probability)
 
@@ -93,7 +92,7 @@ if __name__ == "__main__":
 
     def conv_net(_X, _weights, _biases, _dropout):
         # Reshape input picture
-        _X = tf.reshape(_X, shape=[-1, 599, 128, 2])
+        _X = tf.reshape(_X, shape=[-1, 599, 128, 5])
 
         # Convolution Layer
         conv1 = conv2d(_X, _weights['wc1'], _biases['bc1'])
@@ -101,6 +100,8 @@ if __name__ == "__main__":
         conv1 = max_pool(conv1, k=4)
         # Apply Dropout
         conv1 = tf.nn.dropout(conv1, _dropout)
+        # Apply activation function
+        conv1 = tf.nn.relu(conv1)
 
         # Convolution Layer
         conv2 = conv2d(conv1, _weights['wc2'], _biases['bc2'])
@@ -108,6 +109,8 @@ if __name__ == "__main__":
         conv2 = max_pool(conv2, k=2)
         # Apply Dropout
         conv2 = tf.nn.dropout(conv2, _dropout)
+        # Apply activation function
+        conv2 = tf.nn.relu(conv2)
 
         # Convolution Layer
         conv3 = conv2d(conv2, _weights['wc3'], _biases['bc3'])
@@ -115,6 +118,8 @@ if __name__ == "__main__":
         conv3 = max_pool(conv3, k=2)
         # Apply Dropout
         conv3 = tf.nn.dropout(conv3, _dropout)
+        # Apply activation function
+        conv3 = tf.nn.relu(conv3)
 
         # Fully connected layer
         # Calculate the size of the flattened output
@@ -133,10 +138,10 @@ if __name__ == "__main__":
         return out
 
 
-    # Store layers weight & bias
+    # Store layers weight & bias\
     weights = {
-        # 4x4 conv, 1 input, 149 outputs
-        'wc1': tf.Variable(tf.random_normal([4, 4, 2, 149])),
+        # 4x4 conv, 5 inputs, 149 outputs
+        'wc1': tf.Variable(tf.random_normal([4, 4, 5, 149])),
         # 4x4 conv, 149 inputs, 73 outputs
         'wc2': tf.Variable(tf.random_normal([4, 4, 149, 73])),
         # 4x4 conv, 73 inputs, 35 outputs

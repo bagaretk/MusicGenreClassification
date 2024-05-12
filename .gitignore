@@ -199,3 +199,12 @@ mel-spec/code/data.pkl
 mel-spec/code/model.ckpt.data-00000-of-00001.tempstate7274280964753079750
 mel-spec/code/model.ckpt.index
 mel-spec/code/model.ckpt.meta
+mel-spec/code/model.final.meta
+mel-spec/code/model.final.index
+mel-spec/code/model.final.data-00000-of-00001
+mel-spec/code/model.ckpt.data-00000-of-00001
+mel-spec/code/rezultate.txt
+mel-spec/code/rezultateRelu.txt
+mel-spec/code/rezultateReluPart2.txt
+rezultate.txt
+rezultateRelu.txt

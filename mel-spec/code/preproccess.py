@@ -46,7 +46,7 @@ def prepossessingAudio(audioPath, ppFilePath):
 
 
             # Let's make and display a mel-scaled power (energy-squared) spectrogram
-            S = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=128, n_fft=n_fft, hop_length=hop_length)
+            S = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=128)
 
             # Convert to log scale (dB). We'll use the peak power as reference.
             #log_S = librosa.power_to_db(S, ref=np.max)
