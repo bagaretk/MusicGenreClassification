@@ -208,3 +208,10 @@ mel-spec/code/rezultateRelu.txt
 mel-spec/code/rezultateReluPart2.txt
 rezultate.txt
 rezultateRelu.txt
+mel-spec/code/data.txt
+mel-spec/code/generating-sound-with-neural-networks-main/08 Generation with AutoEncoders/code/model/parameters.pkl
+mel-spec/code/generating-sound-with-neural-networks-main/08 Generation with AutoEncoders/code/model/weights.h5
+mel-spec/code/labels.txt
+mel-spec/code/modele antrenate/model.ckpt.data-00000-of-00001
+/mel-spec/code/modele antrenate
+mel-spec/code/generating-sound-with-neural-networks-main/08 Generation with AutoEncoders/code/data.pkl
