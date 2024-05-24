@@ -1,7 +1,7 @@
 import os
 import pickle
-
-from tensorflow.keras import Model
+import tensorflow as tf
+from tensorflow.keras import Model, regularizers
 from tensorflow.keras.layers import Input, Conv2D, ReLU, BatchNormalization, \
     Flatten, Dense, Reshape, Conv2DTranspose, Activation
 from tensorflow.keras import backend as K
@@ -21,12 +21,19 @@ class Autoencoder:
                  conv_filters,
                  conv_kernels,
                  conv_strides,
-                 latent_space_dim):
-        self.input_shape = input_shape # [599, 128, 5]
-        self.conv_filters = conv_filters # [2, 4, 8]
-        self.conv_kernels = conv_kernels # [3, 5, 3]
-        self.conv_strides = conv_strides # [1, 2, 2]
-        self.latent_space_dim = latent_space_dim # 1000
+                 latent_space_dim,
+                 lambda_l2=0.005,
+                 beta=3,
+                 rho=0.19):
+        self.input_shape = input_shape  # [599, 128, 5]
+        self.conv_filters = conv_filters  # [2, 4, 8, 16]
+        self.conv_kernels = conv_kernels  # [3, 5, 3, 3]
+        self.conv_strides = conv_strides  # [1, 2, 2, 4]
+        self.latent_space_dim = latent_space_dim  # 3000
+
+        self.lambda_l2 = lambda_l2  # L2 regularization parameter
+        self.beta = beta  # Sparsity regularization parameter
+        self.rho = rho  # Target sparsity
 
         self.encoder = None
         self.decoder = None
@@ -45,8 +52,7 @@ class Autoencoder:
 
     def compile(self, learning_rate=0.0001):
         optimizer = Adam(learning_rate=learning_rate)
-        mse_loss = MeanSquaredError()
-        self.model.compile(optimizer=optimizer, loss=mse_loss)
+        self.model.compile(optimizer=optimizer, loss=self._sparse_loss)
 
     def train(self, x_train, batch_size, num_epochs, callbacks=None):
         self.model.fit(x_train,
@@ -89,7 +95,10 @@ class Autoencoder:
             self.conv_filters,
             self.conv_kernels,
             self.conv_strides,
-            self.latent_space_dim
+            self.latent_space_dim,
+            self.lambda_l2,
+            self.beta,
+            self.rho
         ]
         save_path = os.path.join(save_folder, "parameters.pkl")
         with open(save_path, "wb") as f:
@@ -118,10 +127,10 @@ class Autoencoder:
         self.decoder = Model(decoder_input, decoder_output, name="decoder")
 
     def _add_decoder_input(self):
-        return Input(shape=self.latent_space_dim, name="decoder_input")
+        return Input(shape=(self.latent_space_dim,), name="decoder_input")
 
     def _add_dense_layer(self, decoder_input):
-        num_neurons = np.prod(self._shape_before_bottleneck) # [1, 2, 4] -> 8
+        num_neurons = np.prod(self._shape_before_bottleneck)  # [1, 2, 4] -> 8
         dense_layer = Dense(num_neurons, name="decoder_dense")(decoder_input)
         return dense_layer
 
@@ -178,6 +187,7 @@ class Autoencoder:
         x = encoder_input
         for layer_index in range(self._num_conv_layers):
             x = self._add_conv_layer(layer_index, x)
+
         return x
 
     def _add_conv_layer(self, layer_index, x):
@@ -201,20 +211,31 @@ class Autoencoder:
         """Flatten data and add bottleneck (Dense layer)."""
         self._shape_before_bottleneck = K.int_shape(x)[1:]
         x = Flatten()(x)
-        x = Dense(self.latent_space_dim, name="encoder_output")(x)
+        x = Dense(self.latent_space_dim, name="encoder_output",
+                  activity_regularizer=regularizers.L1(self.beta))(x)
         return x
+
+    def _sparse_loss(self, y_true, y_pred):
+        mse_loss = MeanSquaredError()(y_true, y_pred)
+        l2_loss = self.lambda_l2 * tf.add_n([tf.nn.l2_loss(v) for v in self.model.trainable_variables if 'kernel' in v.name])
+
+        # Sparsity loss
+        p_hat = K.mean(self.encoder(self._model_input), axis=0)
+        sparsity_loss = tf.reduce_sum(self.rho * K.log(self.rho / p_hat) + (1 - self.rho) * K.log((1 - self.rho) / (1 - p_hat)))
+
+        total_loss = mse_loss + l2_loss + self.beta * sparsity_loss
+        return total_loss
 
 
 if __name__ == "__main__":
     autoencoder = Autoencoder(
         input_shape=(599, 128, 5),
-        conv_filters=(32, 64, 64, 64),
-        conv_kernels=(3, 3, 3, 3),
-        conv_strides=(1, 2, 2, 1),
-        latent_space_dim=1000
+        conv_filters=(32, 64, 64, 64, 32),
+        conv_kernels=(3, 3, 3, 3, 3),
+        conv_strides=(1, 2, 2, 1, 2),
+        latent_space_dim=8000,
+        lambda_l2=0.005,
+        beta=3,
+        rho=0.19
     )
     autoencoder.summary()
-
-
-
-

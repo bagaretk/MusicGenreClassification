@@ -7,8 +7,8 @@ from autoencoder import Autoencoder
 
 
 LEARNING_RATE = 0.0005
-BATCH_SIZE = 32
-EPOCHS = 75
+BATCH_SIZE = 16
+EPOCHS = 70
 
 
 def load_mnist():
@@ -25,10 +25,10 @@ def load_mnist():
 def train(x_train, learning_rate, batch_size, epochs):
     autoencoder = Autoencoder(
         input_shape=(599, 128, 5),
-        conv_filters=(32, 64, 64, 64),
-        conv_kernels=(3, 3, 3, 3),
-        conv_strides=(1, 2, 2, 1),
-        latent_space_dim=1000
+        conv_filters=(32, 64, 64, 64, 32),
+        conv_kernels=(3, 3, 3, 3, 3),
+        conv_strides=(1, 2, 2, 1, 2),
+        latent_space_dim=8000
     )
     autoencoder.summary()
 
