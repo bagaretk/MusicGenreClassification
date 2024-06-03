@@ -215,3 +215,7 @@ mel-spec/code/labels.txt
 mel-spec/code/modele antrenate/model.ckpt.data-00000-of-00001
 /mel-spec/code/modele antrenate
 mel-spec/code/generating-sound-with-neural-networks-main/08 Generation with AutoEncoders/code/data.pkl
+mel-spec/code/data.zip
+mel-spec/code/model.zip
+mel-spec/code/model/weights.weights.h5
+mel-spec/code/model/parameters.pkl

@@ -1,10 +1,18 @@
-import os
-import pickle
+#!/usr/bin/python
+
+from __future__ import print_function
+
+__author__ = "Matan Lachmish"
+__copyright__ = "Copyright 2016, Tel Aviv University"
+__version__ = "1.0"
+__status__ = "Development"
+
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
+tf.compat.v1.enable_eager_execution()
 import numpy as np
-import tensorflow as tf
-from tensorflow.keras.callbacks import EarlyStopping
+import pickle
 from autoencoder import Autoencoder
-from tensorflow.keras import mixed_precision
 
 def getBatch(data, labels, batchSize, iteration):
     startOfBatch = (iteration * batchSize) % len(data)
@@ -17,76 +25,12 @@ def getBatch(data, labels, batchSize, iteration):
         labelsBatch = labels[startOfBatch:endOfBatch]
         return dataBatch, labelsBatch
 
-# Enable mixed precision
-policy = mixed_precision.Policy('mixed_float16')
-mixed_precision.set_global_policy(policy)
-
-# Set GPU memory growth
-gpus = tf.config.experimental.list_physical_devices('GPU')
-if gpus:
-    try:
-        for gpu in gpus:
-            tf.config.experimental.set_memory_growth(gpu, True)
-    except RuntimeError as e:
-        print(e)
-
-# Configure environment variable for memory allocator
-os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
-
-LEARNING_RATE = 0.0005
-BATCH_SIZE = 4
-EPOCHS = 120
-
-
-def normalize_data(data):
-    mean = np.mean(data, axis=0)
-    std = np.std(data, axis=0)
-    normalized_data = (data - mean) / std
-    normalized_data = np.expand_dims(normalized_data, axis=-1)
-    return normalized_data
-
-
-def train(x_train, learning_rate, batch_size, epochs):
-    autoencoder = Autoencoder(
-        input_shape=(599, 128, 5),
-        conv_filters=(16, 32, 64),
-        conv_kernels=(4, 4, 4),
-        conv_strides=(2, 2, 2),
-        latent_space_dim=8192
-    )
-    autoencoder.summary()
-
-    autoencoder.compile(learning_rate)
-    early_stopping = EarlyStopping(monitor='loss', patience=5, restore_best_weights=True)
-
-    autoencoder.train(x_train, batch_size, epochs, callbacks=[early_stopping])
-
-    # Clear memory after training
-    tf.keras.backend.clear_session()
-    return autoencoder
-
-
 if __name__ == "__main__":
-    train_size = 1000
-
-    with open("data.pkl", 'rb') as f:
-        data = pickle.load(f)
-
-    data = np.asarray(data)
-    permutation = np.random.permutation(len(data))
-    data = data[permutation]
-
-    train_data = data[:train_size]
-    x_train = train_data
-
-    autoencoder = train(x_train, LEARNING_RATE, BATCH_SIZE, EPOCHS)
-    # autoencoder.save("model")
-    latent_representations = autoencoder.encoder.predict(data)
 
     # Parameters
     learning_rate = 0.001
     training_iters = 100000
-    batch_size = 64
+    batch_size = 1
     display_step = 1
     train_size = 800
 
@@ -94,6 +38,18 @@ if __name__ == "__main__":
     n_input = 8192
     n_classes = 10
     dropout = 0.75  # Dropout, probability to keep units
+
+    # Load trained autoencoder
+    autoencoder = Autoencoder.load("model")
+
+    # Load data
+    with open("data.pkl", 'rb') as f:
+        data = pickle.load(f)
+    data = np.asarray(data)
+
+    # Reshape the data
+    # data_flattened = data.reshape((data.shape[0], -1))
+    # print("Shape of data after flattening:", data_flattened.shape)
 
     with open("labels.pkl", 'rb') as f:
         labels = pickle.load(f)
@@ -104,22 +60,30 @@ if __name__ == "__main__":
     data = data[permutation]
     labels = labels[permutation]
 
-
-    latent_representations = latent_representations.numpy()  # Ensure the result is a NumPy array
-    print("Shape of data after autoencoder:", latent_representations.shape)
+    # Normalize data
+    mean = np.mean(data, axis=0)
+    std = np.std(data, axis=0)
+    normalized_data = (data - mean) / std
+    normalized_data = normalized_data.astype(np.float32)
+    print(f"type of normalized_data: {normalized_data.dtype}")
+    print(f"shape of normalized_data: {normalized_data.shape}")
+    
+    # Get latent representations from autoencoder
+    _, data = autoencoder.reconstruct(normalized_data)
+    # latent_representations = latent_representations.numpy() #make sure data is munpy array
+    print("Shape of data after autoencoder:", data.shape)
 
     # Split Train/Test
-    trainData = latent_representations[:train_size]
+    trainData = normalized_data[:train_size]
     trainLabels = labels[:train_size]
 
-    testData = latent_representations[train_size:]
+    testData = normalized_data[train_size:]
     testLabels = labels[train_size:]
 
     # tf Graph input
     x = tf.placeholder(tf.float32, [None, n_input])
     y = tf.placeholder(tf.float32, [None, n_classes])
     keep_prob = tf.placeholder(tf.float32)  # dropout (keep probability)
-
 
     # Create model
     def conv_net(_X, _weights, _biases, _dropout):
@@ -138,7 +102,6 @@ if __name__ == "__main__":
         out = tf.add(tf.matmul(dense2, _weights['out']), _biases['out'])
         out = tf.nn.softmax(out)  # Apply softmax to the output
         return out
-
 
     # Store layers weight & bias
     weights = {
@@ -196,3 +159,4 @@ if __name__ == "__main__":
         print("Model saved in file: %s" % save_path)
 
         print("Testing Accuracy:", sess.run(accuracy, feed_dict={x: testData, y: testLabels, keep_prob: 1.}))
+

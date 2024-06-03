@@ -24,21 +24,20 @@ os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
 
 LEARNING_RATE = 0.0005
 BATCH_SIZE = 4
-EPOCHS = 120
+EPOCHS = 100
 
 
 def normalize_data(data):
     mean = np.mean(data, axis=0)
     std = np.std(data, axis=0)
     normalized_data = (data - mean) / std
-    normalized_data = np.expand_dims(normalized_data, axis=-1)
-    return normalized_data
+    return normalized_data.astype(np.float32)
 
 
 def train(x_train, learning_rate, batch_size, epochs):
     autoencoder = Autoencoder(
         input_shape=(599, 128, 5),
-        conv_filters=(16, 32, 64),
+        conv_filters=(16, 16, 32),
         conv_kernels=(4, 4, 4),
         conv_strides=(2, 2, 2),
         latent_space_dim=8192
@@ -56,7 +55,7 @@ def train(x_train, learning_rate, batch_size, epochs):
 
 
 if __name__ == "__main__":
-    train_size = 1000
+    train_size = 600
 
     with open("data.pkl", 'rb') as f:
         data = pickle.load(f)
@@ -64,11 +63,9 @@ if __name__ == "__main__":
     data = np.asarray(data)
     permutation = np.random.permutation(len(data))
     data = data[permutation]
-
-    train_data = data[:train_size]
+    normalized_data = normalize_data(data)
+    train_data = normalized_data[:train_size]
     x_train = train_data
 
     autoencoder = train(x_train, LEARNING_RATE, BATCH_SIZE, EPOCHS)
-    #autoencoder.save("model")
-    encoder_output = latent_representations = autoencoder.encoder.predict(data)
-
+    autoencoder.save("model")

@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 from autoencoder import Autoencoder
 from train import load_mnist
-
+import pickle
 
 def select_images(images, labels, num_images=10):
     sample_images_index = np.random.choice(range(len(images)), num_images)
@@ -41,11 +41,22 @@ def plot_images_encoded_in_latent_space(latent_representations, sample_labels):
 
 if __name__ == "__main__":
     autoencoder = Autoencoder.load("model")
-    x_train, y_train, x_test, y_test = load_mnist()
+    #x_train, y_train, x_test, y_test = load_mnist()
+    with open("data.pkl", 'rb') as f:
+        data = pickle.load(f)
+    with open("labels.pkl", 'rb') as f:
+        labels = pickle.load(f)
+
+    labels = np.asarray(labels)
+    data = np.asarray(data)
+    permutation = np.random.permutation(len(data))
+    data = data[permutation]
+    labels = labels[permutation]
+
 
     num_sample_images_to_show = 8
     sample_images, _ = select_images(x_test, y_test, num_sample_images_to_show)
-    reconstructed_images, _ = autoencoder.reconstruct(sample_images)
+
     plot_reconstructed_images(sample_images, reconstructed_images)
 
     num_images = 6000
