@@ -94,6 +94,8 @@ if __name__ == "__main__":
     # convert image data to float64 matrix. float64 is need for bh_sne
     reshapedList = list(data.values())  # No need for array() here
     x_data = np.asarray(reshapedList).astype('float64')
+    # make the last dimension the mean value of its items e.g. (1000,599,128,5) becomes (1000,599,128,1)
+    x_data = np.mean(x_data, axis=-1, keepdims=True)
     x_data = x_data.reshape((x_data.shape[0], -1))
 
     # perform t-SNE embedding

@@ -1,51 +1,33 @@
 import os
 import pickle
 import tensorflow as tf
-from tensorflow.keras import Model, regularizers
-from tensorflow.keras.layers import Input, Conv2D, ReLU, BatchNormalization, \
-    Flatten, Dense, Reshape, Conv2DTranspose, Activation, ActivityRegularization
-from tensorflow.keras import backend as K
+from tensorflow.keras import Model
+from tensorflow.keras.layers import Input, Conv2D, ReLU, BatchNormalization, Flatten, Dense, Reshape, Conv2DTranspose, Activation, ActivityRegularization, Lambda
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import MeanSquaredError
-
 import numpy as np
+from tensorflow.keras import backend as K
+
 os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
-
-
+tf.compat.v1.enable_eager_execution()
 
 def custom_loss_wrapper(model):
     mse = MeanSquaredError()
     def customloss(Y_actual, Y_predicted):
-        # MSE loss function from KERAS API
         mseLoss = mse(Y_actual, Y_predicted)
-
-        # Retrieve trainable variables from the model
         trainable_vars = model.trainable_variables
-
-        # Calculate L2 regularization loss
         l2_loss = tf.add_n([tf.nn.l2_loss(v) for v in trainable_vars]) * 0.001
-
-        final_loss = mseLoss + l2_loss  # mean Loss + L2 regularization
+        final_loss = mseLoss + l2_loss
         return final_loss
     return customloss
 
 class Autoencoder:
-    """
-    Autoencoder represents a Deep Convolutional autoencoder architecture with
-    mirrored encoder and decoder components.
-    """
-
-    def __init__(self,
-                 input_shape,
-                 conv_filters,
-                 conv_kernels,
-                 conv_strides,
-                 latent_space_dim):
-        self.input_shape = input_shape # [599, 128, 5]
-        self.conv_filters = conv_filters # [2, 4, 8]
-        self.conv_kernels = conv_kernels # [3, 5, 3]
-        self.conv_strides = conv_strides # [1, 2, 2]
-        self.latent_space_dim = latent_space_dim # 1000
+    def __init__(self, input_shape, conv_filters, conv_kernels, conv_strides, latent_space_dim):
+        self.input_shape = input_shape
+        self.conv_filters = conv_filters
+        self.conv_kernels = conv_kernels
+        self.conv_strides = conv_strides
+        self.latent_space_dim = latent_space_dim
 
         self.encoder = None
         self.decoder = None
@@ -64,16 +46,10 @@ class Autoencoder:
 
     def compile(self, learning_rate=0.0001):
         optimizer = Adam(learning_rate=learning_rate, clipvalue=1.0)
-        mse_loss = MeanSquaredError()
         self.model.compile(optimizer=optimizer, loss=custom_loss_wrapper(self.model))
 
     def train(self, x_train, batch_size, num_epochs, callbacks=None):
-        self.model.fit(x_train,
-                       x_train,
-                       batch_size=batch_size,
-                       epochs=num_epochs,
-                       shuffle=True,
-                       callbacks=callbacks)
+        self.model.fit(x_train, x_train, batch_size=batch_size, epochs=num_epochs, shuffle=True, callbacks=callbacks)
 
     def save(self, save_folder="."):
         self._create_folder_if_it_doesnt_exist(save_folder)
@@ -84,7 +60,8 @@ class Autoencoder:
         self.model.load_weights(weights_path)
 
     def reconstruct(self, images):
-        latent_representations = self.encoder.predict(images)
+        images_float32 = tf.convert_to_tensor(images, dtype=tf.float32)
+        latent_representations = self.encoder.predict(images_float32)
         reconstructed_images = self.decoder.predict(latent_representations)
         return reconstructed_images, latent_representations
 
@@ -138,8 +115,9 @@ class Autoencoder:
 
     def _add_decoder_input(self):
         return Input(shape=(self.latent_space_dim,), name="decoder_input")
+
     def _add_dense_layer(self, decoder_input):
-        num_neurons = np.prod(self._shape_before_bottleneck) # [1, 2, 4] -> 8
+        num_neurons = np.prod(self._shape_before_bottleneck)
         dense_layer = Dense(num_neurons, name="decoder_dense")(decoder_input)
         return dense_layer
 
@@ -147,9 +125,6 @@ class Autoencoder:
         return Reshape(self._shape_before_bottleneck)(dense_layer)
 
     def _add_conv_transpose_layers(self, x):
-        """Add conv transpose blocks."""
-        # loop through all the conv layers in reverse order and stop at the
-        # first layer
         for layer_index in reversed(range(1, self._num_conv_layers)):
             x = self._add_conv_transpose_layer(layer_index, x)
         return x
@@ -192,17 +167,14 @@ class Autoencoder:
         return Input(shape=self.input_shape, name="encoder_input")
 
     def _add_conv_layers(self, encoder_input):
-        """Create all convolutional blocks in encoder."""
         x = encoder_input
         for layer_index in range(self._num_conv_layers):
             x = self._add_conv_layer(layer_index, x)
-        x = ActivityRegularization(l1=0.1,l2=0.1)(x)
+        x = ActivityRegularization(l1=0.1, l2=0.1)(x)
+        print(f"Shape after ActivityRegulatization {x.shape} , {x.dtype}")
         return x
 
     def _add_conv_layer(self, layer_index, x):
-        """Add a convolutional block to a graph of layers, consisting of
-        conv 2d + ReLU + batch normalization.
-        """
         layer_number = layer_index + 1
         conv_layer = Conv2D(
             filters=self.conv_filters[layer_index],
@@ -210,20 +182,21 @@ class Autoencoder:
             strides=self.conv_strides[layer_index],
             padding="same",
             name=f"encoder_conv_layer_{layer_number}"
-            #kernel_regularizer=
         )
         x = conv_layer(x)
         x = ReLU(name=f"encoder_relu_{layer_number}")(x)
         x = BatchNormalization(name=f"encoder_bn_{layer_number}")(x)
+        print(f"Shape after encoder_conv_layer_{layer_number}: {x.shape} {x.dtype}")
         return x
 
     def _add_bottleneck(self, x):
-        """Flatten data and add bottleneck (Dense layer)."""
         self._shape_before_bottleneck = K.int_shape(x)[1:]
+        print(f"shape before flatten {self._shape_before_bottleneck}")
         x = Flatten()(x)
+        print(f"shape after flatten {x.shape}")
+        x = Lambda(lambda y: tf.ensure_shape(y, (None, np.prod(self._shape_before_bottleneck))))(x)
         x = Dense(self.latent_space_dim, name="encoder_output")(x)
         return x
-
 
 if __name__ == "__main__":
     autoencoder = Autoencoder(
@@ -231,6 +204,6 @@ if __name__ == "__main__":
         conv_filters=(16, 32, 32),
         conv_kernels=(4, 4, 4),
         conv_strides=(2, 2, 2),
-        latent_space_dim=4048
+        latent_space_dim=8192
     )
     autoencoder.summary()

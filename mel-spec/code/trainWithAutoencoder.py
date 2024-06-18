@@ -1,11 +1,11 @@
 import os
 import pickle
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.compat.v1.enable_eager_execution()
 from tensorflow.keras.callbacks import EarlyStopping
 from autoencoder import Autoencoder
 from tensorflow.keras import mixed_precision
-
 def getBatch(data, labels, batchSize, iteration):
     startOfBatch = (iteration * batchSize) % len(data)
     endOfBatch = (iteration * batchSize + batchSize) % len(data)
@@ -42,25 +42,29 @@ def normalize_data(data):
     mean = np.mean(data, axis=0)
     std = np.std(data, axis=0)
     normalized_data = (data - mean) / std
-    normalized_data = np.expand_dims(normalized_data, axis=-1)
     return normalized_data
 
 
 def train(x_train, learning_rate, batch_size, epochs):
     autoencoder = Autoencoder(
         input_shape=(599, 128, 5),
-        conv_filters=(16, 32, 64),
+        conv_filters=(16, 16, 32),
         conv_kernels=(4, 4, 4),
         conv_strides=(2, 2, 2),
-        latent_space_dim=8192
+        latent_space_dim=14000
     )
     autoencoder.summary()
-
+    print(f"x_train shape : {x_train.shape}")
     autoencoder.compile(learning_rate)
     early_stopping = EarlyStopping(monitor='loss', patience=5, restore_best_weights=True)
 
     autoencoder.train(x_train, batch_size, epochs, callbacks=[early_stopping])
-
+    #reconstruction accuracy of the autoencoder
+    reconstructed_data = autoencoder.encoder.predict(x_train)
+    if reconstructed_data.shape[-1] == 1:
+        reconstructed_data = np.squeeze(reconstructed_data, axis=-1)
+    autoencoderAccuracy = (1 - np.mean(x_train - autoencoder.decoder.predict(reconstructed_data)) ** 2) * 100
+    print(f"Autoencoder reconstruction accuracy(FITSCORE): {autoencoderAccuracy}")
     # Clear memory after training
     tf.keras.backend.clear_session()
     return autoencoder
@@ -77,12 +81,12 @@ if __name__ == "__main__":
     data = data[permutation]
 
     train_data = data[:train_size]
-    x_train = train_data
+    x_train = normalize_data(train_data)
 
     autoencoder = train(x_train, LEARNING_RATE, BATCH_SIZE, EPOCHS)
     # autoencoder.save("model")
     latent_representations = autoencoder.encoder.predict(data)
-
+    tf.disable_v2_behavior()
     # Parameters
     learning_rate = 0.001
     training_iters = 100000
@@ -91,7 +95,7 @@ if __name__ == "__main__":
     train_size = 800
 
     # Network Parameters
-    n_input = 8192
+    n_input = 14000
     n_classes = 10
     dropout = 0.75  # Dropout, probability to keep units
 
@@ -99,13 +103,10 @@ if __name__ == "__main__":
         labels = pickle.load(f)
     labels = np.asarray(labels)
 
-    # Shuffle data
-    permutation = np.random.permutation(len(data))
-    data = data[permutation]
+    # Shuffle labels
     labels = labels[permutation]
 
-
-    latent_representations = latent_representations.numpy()  # Ensure the result is a NumPy array
+    #latent_representations = latent_representations.numpy()  # Ensure the result is a NumPy array
     print("Shape of data after autoencoder:", latent_representations.shape)
 
     # Split Train/Test
