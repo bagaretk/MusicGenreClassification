@@ -223,3 +223,5 @@ mel-spec/code/5data.pkl
 mel-spec/code/codeUsedOnVastAi2/autoencoder.py
 mel-spec/code/codeUsedOnVastAi2/train.py
 mel-spec/code/codeUsedOnVastAi2/trainWithAutoencoder.py
+mel-spec/code/contentOfLabels.py
+/mel-spec/code/testMusic

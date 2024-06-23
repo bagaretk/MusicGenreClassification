@@ -6,6 +6,7 @@ tf.compat.v1.enable_eager_execution()
 from tensorflow.keras.callbacks import EarlyStopping
 from autoencoder import Autoencoder
 from tensorflow.keras import mixed_precision
+from sklearn.preprocessing import MinMaxScaler
 def getBatch(data, labels, batchSize, iteration):
     startOfBatch = (iteration * batchSize) % len(data)
     endOfBatch = (iteration * batchSize + batchSize) % len(data)
@@ -38,12 +39,18 @@ BATCH_SIZE = 4
 EPOCHS = 120
 
 
-def normalize_data(data):
-    mean = np.mean(data, axis=0)
-    std = np.std(data, axis=0)
-    normalized_data = (data - mean) / std
+def min_max_normalize_data(data):
+    scaler = MinMaxScaler()
+    reshaped_data = data.reshape(-1, data.shape[-1])
+    normalized_data = scaler.fit_transform(reshaped_data)
+    normalized_data = normalized_data.reshape(data.shape)
     return normalized_data
 
+def calculate_r_squared(y_true, y_pred):
+    ssr = np.sum((y_true - y_pred) ** 2)
+    sst = np.sum((y_true - np.mean(y_true)) ** 2)
+    r_squared = 1 - (ssr / sst)
+    return r_squared
 
 def train(x_train, learning_rate, batch_size, epochs):
     autoencoder = Autoencoder(
@@ -51,7 +58,7 @@ def train(x_train, learning_rate, batch_size, epochs):
         conv_filters=(16, 16, 32),
         conv_kernels=(4, 4, 4),
         conv_strides=(2, 2, 2),
-        latent_space_dim=14000
+        latent_space_dim=8192
     )
     autoencoder.summary()
     print(f"x_train shape : {x_train.shape}")
@@ -65,6 +72,12 @@ def train(x_train, learning_rate, batch_size, epochs):
         reconstructed_data = np.squeeze(reconstructed_data, axis=-1)
     autoencoderAccuracy = (1 - np.mean(x_train - autoencoder.decoder.predict(reconstructed_data)) ** 2) * 100
     print(f"Autoencoder reconstruction accuracy(FITSCORE): {autoencoderAccuracy}")
+
+    # Calculate R-squared
+    y_true = x_train.flatten()
+    y_pred = autoencoder.decoder.predict(reconstructed_data).flatten()
+    r_squared = calculate_r_squared(y_true, y_pred)
+    print(f"R-squared: {r_squared}")
     # Clear memory after training
     tf.keras.backend.clear_session()
     return autoencoder
@@ -81,11 +94,11 @@ if __name__ == "__main__":
     data = data[permutation]
 
     train_data = data[:train_size]
-    x_train = normalize_data(train_data)
+    x_train = min_max_normalize_data(train_data)
 
     autoencoder = train(x_train, LEARNING_RATE, BATCH_SIZE, EPOCHS)
     # autoencoder.save("model")
-    latent_representations = autoencoder.encoder.predict(data)
+    latent_representations = autoencoder.encoder.predict(x_train)
     tf.disable_v2_behavior()
     # Parameters
     learning_rate = 0.001
@@ -95,7 +108,7 @@ if __name__ == "__main__":
     train_size = 800
 
     # Network Parameters
-    n_input = 14000
+    n_input = 8192
     n_classes = 10
     dropout = 0.75  # Dropout, probability to keep units
 
@@ -137,7 +150,6 @@ if __name__ == "__main__":
 
         # Output, class prediction
         out = tf.add(tf.matmul(dense2, _weights['out']), _biases['out'])
-        out = tf.nn.softmax(out)  # Apply softmax to the output
         return out
 
 

@@ -1,14 +1,26 @@
 import os
 import pickle
-
+import tensorflow as tf
 from tensorflow.keras import Model
-from tensorflow.keras.layers import Input, Conv2D, ReLU, BatchNormalization, \
-    Flatten, Dense, Reshape, Conv2DTranspose, Activation
 from tensorflow.keras import backend as K
+from tensorflow.keras.layers import Input, Conv2D, ReLU, BatchNormalization, Flatten, Dense, Reshape, Conv2DTranspose, Activation, ActivityRegularization, Lambda
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import MeanSquaredError
 import numpy as np
+from tensorflow.keras import backend as K
 
+os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
+tf.compat.v1.enable_eager_execution()
+
+def custom_loss_wrapper(model):
+    mse = MeanSquaredError()
+    def customloss(Y_actual, Y_predicted):
+        mseLoss = mse(Y_actual, Y_predicted)
+        trainable_vars = model.trainable_variables
+        l2_loss = tf.add_n([tf.nn.l2_loss(v) for v in trainable_vars]) * 0.001
+        final_loss = mseLoss + l2_loss
+        return final_loss
+    return customloss
 
 class Autoencoder:
     """
@@ -23,10 +35,10 @@ class Autoencoder:
                  conv_strides,
                  latent_space_dim):
         self.input_shape = input_shape # [599, 128, 5]
-        self.conv_filters = conv_filters # [2, 4, 8]
-        self.conv_kernels = conv_kernels # [3, 5, 3]
-        self.conv_strides = conv_strides # [1, 2, 2]
-        self.latent_space_dim = latent_space_dim # 1000
+        self.conv_filters = conv_filters # [16, 32, 32]
+        self.conv_kernels = conv_kernels # [4, 4, 4]
+        self.conv_strides = conv_strides # [2, 2, 2]
+        self.latent_space_dim = latent_space_dim # 8192
 
         self.encoder = None
         self.decoder = None
@@ -44,16 +56,11 @@ class Autoencoder:
         self.model.summary()
 
     def compile(self, learning_rate=0.0001):
-        optimizer = Adam(learning_rate=learning_rate)
-        mse_loss = MeanSquaredError()
-        self.model.compile(optimizer=optimizer, loss=mse_loss)
+        optimizer = Adam(learning_rate=learning_rate, clipvalue=1.0)
+        self.model.compile(optimizer=optimizer, loss=custom_loss_wrapper(self.model))
 
-    def train(self, x_train, batch_size, num_epochs):
-        self.model.fit(x_train,
-                       x_train,
-                       batch_size=batch_size,
-                       epochs=num_epochs,
-                       shuffle=True)
+    def train(self, x_train, batch_size, num_epochs, callbacks=None):
+        self.model.fit(x_train, x_train, batch_size=batch_size, epochs=num_epochs, shuffle=True, callbacks=callbacks)
 
     def save(self, save_folder="."):
         self._create_folder_if_it_doesnt_exist(save_folder)
@@ -64,7 +71,8 @@ class Autoencoder:
         self.model.load_weights(weights_path)
 
     def reconstruct(self, images):
-        latent_representations = self.encoder.predict(images)
+        images_float32 = tf.convert_to_tensor(images, dtype=tf.float32)
+        latent_representations = self.encoder.predict(images_float32)
         reconstructed_images = self.decoder.predict(latent_representations)
         return reconstructed_images, latent_representations
 
@@ -117,12 +125,12 @@ class Autoencoder:
         self.decoder = Model(decoder_input, decoder_output, name="decoder")
 
     def _add_decoder_input(self):
-        return Input(shape=self.latent_space_dim, name="decoder_input")
+        return Input(shape=(self.latent_space_dim,), name="decoder_input")
 
     def _add_dense_layer(self, decoder_input):
-        num_neurons = np.prod(self._shape_before_bottleneck)  # [1, 2, 4] -> 8
+        num_neurons = np.prod(self._shape_before_bottleneck)
         dense_layer = Dense(num_neurons, name="decoder_dense")(decoder_input)
-        return Reshape(self._shape_before_bottleneck)(dense_layer)
+        return dense_layer
 
     def _add_reshape_layer(self, dense_layer):
         return Reshape(self._shape_before_bottleneck)(dense_layer)
@@ -177,6 +185,7 @@ class Autoencoder:
         x = encoder_input
         for layer_index in range(self._num_conv_layers):
             x = self._add_conv_layer(layer_index, x)
+        print(f"Shape after ActivityRegulatization {x.shape} , {x.dtype}")
         return x
 
     def _add_conv_layer(self, layer_index, x):
@@ -194,28 +203,25 @@ class Autoencoder:
         x = conv_layer(x)
         x = ReLU(name=f"encoder_relu_{layer_number}")(x)
         x = BatchNormalization(name=f"encoder_bn_{layer_number}")(x)
-        print(f"Shape after encoder_conv_layer_{layer_number}: {x.shape}")
+        print(f"Shape after encoder_conv_layer_{layer_number}: {x.shape} {x.dtype}")
         return x
 
     def _add_bottleneck(self, x):
         """Flatten data and add bottleneck (Dense layer)."""
         self._shape_before_bottleneck = K.int_shape(x)[1:]
+        print(f"shape before flatten {self._shape_before_bottleneck}")
         x = Flatten()(x)
-        print(f"Shape before Flatten: {self._shape_before_bottleneck}, after Flatten: {x.shape}")
+        print(f"shape after flatten {x.shape}")
+        x = Lambda(lambda y: tf.ensure_shape(y, (None, np.prod(self._shape_before_bottleneck))))(x)
         x = Dense(self.latent_space_dim, name="encoder_output")(x)
         return x
-
 
 if __name__ == "__main__":
     autoencoder = Autoencoder(
         input_shape=(599, 128, 5),
-        conv_filters=(32, 64, 64, 64),
-        conv_kernels=(3, 3, 3, 3),
-        conv_strides=(1, 2, 2, 1),
-        latent_space_dim=1000
+        conv_filters=(16, 32, 32),
+        conv_kernels=(4, 4, 4),
+        conv_strides=(2, 2, 2),
+        latent_space_dim=8192
     )
     autoencoder.summary()
-
-
-
-
