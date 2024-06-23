@@ -185,6 +185,7 @@ class Autoencoder:
         x = encoder_input
         for layer_index in range(self._num_conv_layers):
             x = self._add_conv_layer(layer_index, x)
+        x = ActivityRegularization(l1=0.1, l2=0.1)(x)
         print(f"Shape after ActivityRegulatization {x.shape} , {x.dtype}")
         return x
 
