@@ -1,9 +1,6 @@
 # Music Genre Classification 🎵🎶
 
 **Music genre classification using audio signal processing, convolutional neural networks, and autoencoders**
-
-📁 _Developed by [Istrate Sebastian-Nicolae](https://github.com/bagaretk) – Politehnica University of Timișoara, 2024_
-
 ---
 
 ## 📌 Overview
@@ -27,7 +24,7 @@ This project performs automatic classification of music clips into genres using 
 
 ## 🗃️ Dataset
 
-- [GTZAN Genre Collection](http://marsyas.info/downloads/datasets.html)  
+- [GTZAN Genre Collection](https://www.kaggle.com/datasets/andradaolteanu/gtzan-dataset-music-genre-classification)  
 - Audio clips converted into **Mel spectrograms**  
 - Experiments conducted using both 2-channel and 5-channel versions of the spectrograms  
 
@@ -94,7 +91,7 @@ python train_autoencoder.py
 
 ## 📚 References
 
-- [GTZAN Dataset](http://marsyas.info/downloads/datasets.html)  
+- [GTZAN Dataset](https://www.kaggle.com/datasets/andradaolteanu/gtzan-dataset-music-genre-classification)  
 - [TensorFlow](https://www.tensorflow.org/)  
 - [Librosa](https://librosa.org/)  
 
