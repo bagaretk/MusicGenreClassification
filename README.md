@@ -79,15 +79,8 @@ python train_autoencoder.py
 ```
 ## 📁 Project Structure
 --- 
-- ├── data/ # Preprocessed spectrograms
-- ├── models/ # Trained models
-- ├── notebooks/ # Jupyter notebooks with experiments
-- ├── preprocess.py # Generate Mel spectrograms
-- ├── postprocess.py # Format input data
-- ├── train_cnn.py # Train the CNN classifier
-- ├── train_autoencoder.py # Train autoencoder + classifier
-- ├── requirements.txt # Python dependencies
-- └── README.md
+- ├── mel-spec
+- ├──├── code # where all the magic happens
 
 ---
 
